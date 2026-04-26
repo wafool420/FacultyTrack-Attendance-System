@@ -1,0 +1,371 @@
+{% extends "app/base.html" %} {% block content %}
+
+<style>
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+  }
+
+  .page-title h1 {
+    color: #0f3d2e;
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 5px;
+  }
+
+  .page-title p {
+    color: #6c757d;
+    margin: 0;
+  }
+
+  .date-box {
+    background: white;
+    padding: 12px 18px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    color: #333;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 22px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .stat-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+  }
+
+  .purple {
+    background: #eee9ff;
+    color: #5142b8;
+  }
+  .orange {
+    background: #fff2dc;
+    color: #f0a000;
+  }
+  .green {
+    background: #e3f5ea;
+    color: #16784b;
+  }
+  .red {
+    background: #ffe6e6;
+    color: #d93025;
+  }
+
+  .stat-info h2 {
+    margin: 0;
+    font-size: 30px;
+    font-weight: 700;
+  }
+
+  .stat-info span {
+    color: #6c757d;
+    font-size: 14px;
+  }
+
+  .requests-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 28px;
+    padding: 18px 24px 0;
+    border-bottom: 1px solid #eee;
+  }
+
+  .tabs a {
+    padding-bottom: 12px;
+    color: #6c757d;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .tabs a.active {
+    color: #0f6b3f;
+    border-bottom: 2px solid #0f6b3f;
+    font-weight: 600;
+  }
+
+  .tabs .active {
+    color: #0f6b3f;
+    border-bottom: 2px solid #0f6b3f;
+    font-weight: 600;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th,
+  td {
+    padding: 18px 24px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+    vertical-align: middle;
+  }
+
+  th {
+    font-size: 14px;
+    color: #222;
+  }
+
+  .applicant {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: #eee9ff;
+    color: #5142b8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+  }
+
+  .applicant strong {
+    display: block;
+  }
+
+  .applicant small {
+    color: #6c757d;
+  }
+
+  .role-badge {
+    background: #eee9ff;
+    color: #5142b8;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .status-badge {
+    background: #fff2dc;
+    color: #b87500;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .btn-action {
+    padding: 7px 13px;
+    border-radius: 8px;
+    font-size: 14px;
+    text-decoration: none;
+    border: 1px solid #ddd;
+    background: white;
+    cursor: pointer;
+  }
+
+  .approve-btn {
+    color: #0f6b3f;
+    border-color: #0f6b3f;
+  }
+
+  .reject-btn {
+    color: #dc3545;
+    border-color: #dc3545;
+  }
+
+  .empty-row {
+    text-align: center;
+    color: #6c757d;
+    padding: 30px;
+  }
+</style>
+
+<div class="page-header">
+  <div class="page-title">
+    <h1>Incoming Requests</h1>
+    <p>Review and manage new account access requests.</p>
+  </div>
+
+  <div class="date-box">
+    <i class="bi bi-calendar"></i>
+    {% now "D, M d, Y" %}
+  </div>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-icon purple"><i class="bi bi-person-plus-fill"></i></div>
+    <div class="stat-info">
+      <h2>{{ total_requests }}</h2>
+      <span>Total Requests</span>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon orange"><i class="bi bi-clock"></i></div>
+    <div class="stat-info">
+      <h2>{{ pending_count }}</h2>
+      <span>Pending</span>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon green"><i class="bi bi-check-circle"></i></div>
+    <div class="stat-info">
+      <h2>{{ approved_count }}</h2>
+      <span>Approved</span>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon red"><i class="bi bi-x-lg"></i></div>
+    <div class="stat-info">
+      <h2>{{ rejected_count }}</h2>
+      <span>Rejected</span>
+    </div>
+  </div>
+</div>
+
+<div class="requests-card">
+  <div class="tabs">
+    <a
+      href="{% url 'incoming_requests' %}"
+      class="{% if selected_status == 'All' %}active{% endif %}"
+      >All</a
+    >
+
+    <a
+      href="{% url 'incoming_requests' %}?status=Pending"
+      class="{% if selected_status == 'Pending' %}active{% endif %}"
+      >Pending</a
+    >
+
+    <a
+      href="{% url 'incoming_requests' %}?status=Approved"
+      class="{% if selected_status == 'Approved' %}active{% endif %}"
+      >Approved</a
+    >
+
+    <a
+      href="{% url 'incoming_requests' %}?status=Rejected"
+      class="{% if selected_status == 'Rejected' %}active{% endif %}"
+      >Rejected</a
+    >
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Applicant</th>
+        <th>Requested Role</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {% for profile in profiles %}
+      <tr>
+        <td>
+          <div class="applicant">
+            <div class="avatar">{{ profile.user.username|first|upper }}</div>
+            <div>
+              <strong>
+                {{ profile.user.first_name }} {{ profile.user.last_name }}
+              </strong>
+              <small>{{ profile.user.email }}</small>
+            </div>
+          </div>
+        </td>
+
+        <td>
+          <span class="role-badge">{{ profile.position }}</span>
+        </td>
+
+        <td>
+          <span class="status-badge"> {{ profile.status }} </span>
+        </td>
+
+        <td>
+          <div class="actions">
+            {% if profile.status == "Pending" %}
+            <a
+              href="{% url 'approve_user' profile.id %}"
+              class="btn-action approve-btn"
+            >
+              Approve
+            </a>
+
+            <a
+              href="{% url 'reject_user' profile.id %}"
+              class="btn-action reject-btn"
+            >
+              Reject
+            </a>
+
+            {% elif profile.status == "Approved" %}
+            <a
+              href="{% url 'remove_approved_user' profile.id %}"
+              class="btn-action reject-btn"
+            >
+              Remove
+            </a>
+
+            {% elif profile.status == "Rejected" %}
+            <a
+              href="{% url 'approve_user' profile.id %}"
+              class="btn-action approve-btn"
+            >
+              Approve
+            </a>
+
+            <a
+              href="{% url 'delete_rejected_user' profile.id %}"
+              class="btn-action reject-btn"
+            >
+              Delete
+            </a>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="4" class="empty-row">No pending account requests.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

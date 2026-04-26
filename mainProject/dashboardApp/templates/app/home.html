@@ -1,0 +1,96 @@
+{% extends "app/base.html" %} {% block title %}Today's Attendance{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h2 class="fw-bold mb-1">Today's Attendance</h2>
+    <p class="text-muted mb-0">
+      Monitor staff check-in and check-out records for today.
+    </p>
+  </div>
+
+  <div class="bg-white px-3 py-2 rounded shadow-sm">
+    <i class="bi bi-calendar-check"></i>
+    {% now "F d, Y" %}
+  </div>
+</div>
+
+<div class="row mb-4">
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm rounded-4">
+      <div class="card-body">
+        <p class="text-muted mb-1">Present</p>
+        <h3 class="fw-bold text-success">0</h3>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm rounded-4">
+      <div class="card-body">
+        <p class="text-muted mb-1">Absent</p>
+        <h3 class="fw-bold text-danger">0</h3>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm rounded-4">
+      <div class="card-body">
+        <p class="text-muted mb-1">Not Yet Scanned</p>
+        <h3 class="fw-bold text-warning">0</h3>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm rounded-4">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold mb-0">Attendance List</h5>
+
+      <input
+        type="text"
+        class="form-control w-25"
+        placeholder="Search staff..."
+      />
+    </div>
+
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Staff Name</th>
+            <th>Position</th>
+            <th>Check In</th>
+            <th>Check Out</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for record in attendance_records %}
+          <tr>
+            <td>{{ record.staff_name }}</td>
+            <td>{{ record.position }}</td>
+            <td>{{ record.check_in|default:"--" }}</td>
+            <td>{{ record.check_out|default:"--" }}</td>
+            <td>
+              <span class="badge bg-success">{{ record.status }}</span>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="5" class="text-center text-muted py-4">
+              <i class="bi bi-inbox" style="font-size: 20px"></i><br />
+              No entries detected
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
