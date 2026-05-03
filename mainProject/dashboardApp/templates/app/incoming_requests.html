@@ -287,7 +287,6 @@
     <thead>
       <tr>
         <th>Applicant</th>
-        <th>Requested Role</th>
         <th>Status</th>
         <th>Actions</th>
       </tr>
@@ -298,7 +297,7 @@
       <tr>
         <td>
           <div class="applicant">
-            <div class="avatar">{{ profile.user.username|first|upper }}</div>
+            <div class="avatar">{{ profile.user.first_name|first|upper }}</div>
             <div>
               <strong>
                 {{ profile.user.first_name }} {{ profile.user.last_name }}
@@ -309,16 +308,15 @@
         </td>
 
         <td>
-          <span class="role-badge">{{ profile.position }}</span>
-        </td>
-
-        <td>
           <span class="status-badge"> {{ profile.status }} </span>
         </td>
 
         <td>
           <div class="actions">
-            {% if profile.status == "Pending" %}
+            {% if profile.user == request.user %}
+            <span style="color: #aaa">---</span>
+
+            {% elif profile.status == "Pending" %}
             <a
               href="{% url 'approve_user' profile.id %}"
               class="btn-action approve-btn"

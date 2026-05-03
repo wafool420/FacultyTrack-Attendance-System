@@ -231,18 +231,8 @@
             Today's Attendance
           </a>
 
-          {% if request.user.profile.position == "Administrator" %}
           <a
-            href="{% url 'incoming_requests' %}"
-            class="{% if request.resolver_match.url_name == 'incoming_requests' %}active{% endif %}"
-          >
-            <i class="bi bi-person-plus"></i>
-            Incoming Requests
-          </a>
-          {% endif %}
-
-          <a
-            href="#"
+            href="{% url 'attendance_log' %}"
             class="{% if request.resolver_match.url_name == 'attendance_log' %}active{% endif %}"
           >
             <i class="bi bi-clock-history"></i>
@@ -250,19 +240,11 @@
           </a>
 
           <a
-            href="#"
-            class="{% if request.resolver_match.url_name == 'faculty_directory' %}active{% endif %}"
+            href="{% url 'incoming_requests' %}"
+            class="{% if request.resolver_match.url_name == 'incoming_requests' %}active{% endif %}"
           >
-            <i class="bi bi-people"></i>
-            Faculty Directory
-          </a>
-
-          <a
-            href="#"
-            class="{% if request.resolver_match.url_name == 'events_attendance' %}active{% endif %}"
-          >
-            <i class="bi bi-calendar-event"></i>
-            Events Attendance
+            <i class="bi bi-person-plus"></i>
+            Incoming Requests
           </a>
         </div>
       </div>
@@ -277,7 +259,7 @@
           <strong>
             {{ request.user.first_name }} {{ request.user.last_name }}
           </strong>
-          <small> {{ request.user.profile.position|default:"Staff" }} </small>
+          <small> User</small>
         </div>
 
         <i class="bi bi-chevron-down ms-auto"></i>

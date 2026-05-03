@@ -7,6 +7,15 @@ from django.contrib import messages
 
 from .forms import RegisterUserForm
 from .models import Profile
+import qrcode
+from io import BytesIO
+import base64
+
+from django.utils import timezone
+from django.shortcuts import get_object_or_404
+
+from .models import Event, QRSession, AttendanceEntry
+from .forms import AttendanceEntryForm
 
 
 def login_user(request):
@@ -55,7 +64,36 @@ def home(request):
     if request.user.profile.status != "Approved":
         return render(request, "app/pending_approval.html")
 
-    return render(request, "app/home.html")
+    event = Event.objects.filter(is_active=True).last()
+    qr_image = None
+    latest_qr = None
+
+    if event:
+        latest_qr = QRSession.objects.filter(event=event, is_active=True).last()
+
+        if latest_qr:
+            scan_url = request.build_absolute_uri(f"/attendance-form/{latest_qr.code}/")
+
+            qr = qrcode.make(scan_url)
+            buffer = BytesIO()
+            qr.save(buffer, format="PNG")
+            qr_image = base64.b64encode(buffer.getvalue()).decode()
+
+    entries = AttendanceEntry.objects.filter(event=event) if event else AttendanceEntry.objects.none()
+
+    present_count = entries.filter(check_in__isnull=False, check_out__isnull=False).count()
+    not_yet_scanned = entries.filter(check_in__isnull=True).count()
+    absent_count = entries.filter(check_in__isnull=False, check_out__isnull=True).count()
+
+    return render(request, "app/home.html", {
+        "event": event,
+        "latest_qr": latest_qr,
+        "qr_image": qr_image,
+        "entries": entries,
+        "present_count": present_count,
+        "absent_count": absent_count,
+        "not_yet_scanned": not_yet_scanned,
+    })
 
 
 def logout_user(request):
@@ -92,10 +130,162 @@ def change_password(request):
         "form": form,
     })
 
+@login_required
+def create_event(request):
+    if request.user.profile.status != "Approved":
+        return redirect("home")
+
+    if request.method == "POST":
+        title = request.POST.get("title")
+
+        Event.objects.filter(is_active=True).update(is_active=False)
+
+        Event.objects.create(title=title)
+
+    return redirect("home")
+
+
+@login_required
+def generate_qr(request, mode):
+    if request.user.profile.status != "Approved":
+        return redirect("home")
+
+    event = Event.objects.filter(is_active=True).last()
+
+    if not event:
+        messages.error(request, "Please create an event first.")
+        return redirect("home")
+
+    QRSession.objects.filter(event=event, is_active=True).update(is_active=False)
+
+    QRSession.objects.create(
+        event=event,
+        mode=mode,
+        is_active=True
+    )
+
+    return redirect("home")
+
+def attendance_form(request, code):
+    qr_session = get_object_or_404(QRSession, code=code)
+
+    if not qr_session.is_active:
+        return render(request, "app/invalid_qr.html")
+
+    if request.method == "POST":
+        form = AttendanceEntryForm(request.POST, request.FILES)
+
+        if form.is_valid():
+            name = form.cleaned_data["name"]
+            campus = form.cleaned_data["campus"]
+            sex = form.cleaned_data["sex"]
+
+            entry = AttendanceEntry.objects.filter(
+                event=qr_session.event,
+                name__iexact=name,
+                campus=campus,
+                sex=sex,
+            ).first()
+
+            if qr_session.mode == "check_in":
+                if entry and entry.check_in:
+                    return render(request, "app/attendance_result.html", {
+                        "message": "You are already checked in."
+                    })
+
+                if not entry:
+                    entry = form.save(commit=False)
+                    entry.event = qr_session.event
+
+                entry.check_in = timezone.now()
+                entry.check_in_image = request.FILES.get("signature_image")
+                entry.save()
+
+                return render(request, "app/attendance_result.html", {
+                    "message": "Check-in successful."
+                })
+
+            if qr_session.mode == "check_out":
+                if not entry or not entry.check_in:
+                    return render(request, "app/attendance_result.html", {
+                        "message": "No check-in record found. Please check in first."
+                    })
+
+                if entry.check_out:
+                    return render(request, "app/attendance_result.html", {
+                        "message": "You are already checked out."
+                    })
+
+                entry.check_out = timezone.now()
+                entry.check_out_image = request.FILES.get("signature_image")
+                entry.save()
+
+                return render(request, "app/attendance_result.html", {
+                    "message": "Check-out successful."
+                })
+
+    else:
+        form = AttendanceEntryForm()
+
+    return render(request, "app/attendance_form.html", {
+        "form": form,
+        "event": qr_session.event,
+        "mode": qr_session.mode,
+    })
+
+@login_required
+def delete_event(request, event_id):
+    event = get_object_or_404(Event, id=event_id)
+    event.delete()
+    messages.success(request, "Event deleted successfully.")
+    return redirect("attendance_log")
+
+@login_required
+def delete_entry(request, entry_id):
+    entry = get_object_or_404(AttendanceEntry, id=entry_id)
+    entry.delete()
+    return redirect('home')
+
+@login_required
+def close_event(request, event_id):
+    event = get_object_or_404(Event, id=event_id)
+
+    if request.method == "POST":
+        event.is_active = False
+        event.closed_at = timezone.now()
+        event.save()
+
+        QRSession.objects.filter(event=event, is_active=True).update(is_active=False)
+
+        messages.success(request, "Event closed and moved to attendance log.")
+
+    return redirect("home")
+
+@login_required
+def attendance_log(request):
+    events = Event.objects.filter(is_active=False).order_by("-closed_at")
+    return render(request, "app/attendance_log.html", {
+        "events": events,
+    })
+
+@login_required
+def reopen_event(request, event_id):
+    event = get_object_or_404(Event, id=event_id)
+
+    if request.method == "POST":
+        Event.objects.filter(is_active=True).update(is_active=False)
+
+        event.is_active = True
+        event.closed_at = None
+        event.save()
+
+        messages.success(request, "Event reopened successfully.")
+
+    return redirect("home")
 
 @login_required
 def incoming_requests(request):
-    if request.user.profile.position != "Administrator" or request.user.profile.status != "Approved":
+    if request.user.profile.status != "Approved":
         return redirect("home")
 
     selected_status = request.GET.get("status", "All")
@@ -121,7 +311,7 @@ def incoming_requests(request):
 
 @login_required
 def approve_user(request, profile_id):
-    if request.user.profile.position != "Administrator" or request.user.profile.status != "Approved":
+    if request.user.profile.status != "Approved":
         return redirect("home")
 
     profile = Profile.objects.get(id=profile_id)
@@ -133,7 +323,7 @@ def approve_user(request, profile_id):
 
 @login_required
 def reject_user(request, profile_id):
-    if request.user.profile.position != "Administrator" or request.user.profile.status != "Approved":
+    if request.user.profile.status != "Approved":
         return redirect("home")
 
     profile = Profile.objects.get(id=profile_id)
@@ -145,7 +335,7 @@ def reject_user(request, profile_id):
 
 @login_required
 def delete_rejected_user(request, profile_id):
-    if request.user.profile.position != "Administrator" or request.user.profile.status != "Approved":
+    if request.user.profile.status != "Approved":
         return redirect("home")
 
     profile = Profile.objects.get(id=profile_id)
@@ -156,7 +346,7 @@ def delete_rejected_user(request, profile_id):
 
 @login_required
 def remove_approved_user(request, profile_id):
-    if request.user.profile.position != "Administrator" or request.user.profile.status != "Approved":
+    if request.user.profile.status != "Approved":
         return redirect("home")
 
     profile = Profile.objects.get(id=profile_id)

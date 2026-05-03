@@ -15,4 +15,12 @@ urlpatterns = [
     path("reject-user/<int:profile_id>/", views.reject_user, name="reject_user"),
     path("delete-rejected-user/<int:profile_id>/", views.delete_rejected_user, name="delete_rejected_user"),
     path("remove-approved-user/<int:profile_id>/", views.remove_approved_user, name="remove_approved_user"),
+    path("create-event/", views.create_event, name="create_event"),
+    path("generate-qr/<str:mode>/", views.generate_qr, name="generate_qr"),
+    path("attendance-form/<uuid:code>/", views.attendance_form, name="attendance_form"),
+    path('delete-entry/<int:entry_id>/', views.delete_entry, name='delete_entry'),
+    path("delete-event/<int:event_id>/", views.delete_event, name="delete_event"),
+    path("close-event/<int:event_id>/", views.close_event, name="close_event"),
+    path("attendance-log/", views.attendance_log, name="attendance_log"),
+    path("reopen-event/<int:event_id>/", views.reopen_event, name="reopen_event"),
 ]

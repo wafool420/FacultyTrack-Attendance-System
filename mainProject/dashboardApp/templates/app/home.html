@@ -15,33 +15,93 @@
   </div>
 </div>
 
-<div class="row mb-4">
-  <div class="col-md-4">
-    <div class="card border-0 shadow-sm rounded-4">
-      <div class="card-body">
-        <p class="text-muted mb-1">Present</p>
-        <h3 class="fw-bold text-success">0</h3>
-      </div>
-    </div>
-  </div>
+<div class="card p-4 mb-4">
+  {% if not event %}
+  <h4>Event Attendance QR</h4>
+  <form method="POST" action="{% url 'create_event' %}">
+    {% csrf_token %}
+    <input
+      type="text"
+      name="title"
+      class="form-control mb-2"
+      placeholder="Enter event title"
+      required
+    />
 
-  <div class="col-md-4">
-    <div class="card border-0 shadow-sm rounded-4">
-      <div class="card-body">
-        <p class="text-muted mb-1">Absent</p>
-        <h3 class="fw-bold text-danger">0</h3>
-      </div>
-    </div>
-  </div>
+    <button type="submit" class="btn btn-success">Create Event</button>
+  </form>
+  {% endif %} {% if event %} {% if event %}
+  <div class="d-flex align-items-center gap-2 mt-3 mb-3">
+    <p class="mb-0"><strong>Current Event:</strong> {{ event.title }}</p>
 
-  <div class="col-md-4">
-    <div class="card border-0 shadow-sm rounded-4">
-      <div class="card-body">
-        <p class="text-muted mb-1">Not Yet Scanned</p>
-        <h3 class="fw-bold text-warning">0</h3>
+    <form
+      method="POST"
+      action="{% url 'close_event' event.id %}"
+      class="d-inline"
+    >
+      {% csrf_token %}
+      <button
+        type="submit"
+        class="btn btn-danger btn-sm"
+        onclick="
+          return confirm(
+            'Are you sure you want to close this event? This will finalize the attendance and move it to the Attendance Log.',
+          );
+        "
+      >
+        Close Event
+      </button>
+    </form>
+  </div>
+  {% endif %}
+
+  <a href="{% url 'generate_qr' 'check_in' %}" class="btn btn-primary">
+    Generate Check-in QR
+  </a>
+
+  <a href="{% url 'generate_qr' 'check_out' %}" class="btn btn-warning">
+    Generate Check-out QR
+  </a>
+
+  {% if qr_image %}
+  <div class="mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <p class="mb-0">
+        <strong>QR Mode:</strong>
+        {{ latest_qr.get_mode_display }}
+      </p>
+
+      <div>
+        <button
+          type="button"
+          class="btn btn-sm btn-secondary"
+          onclick="toggleQR()"
+        >
+          -
+        </button>
+
+        <a
+          href="{% url 'delete_event' event.id %}"
+          class="btn btn-sm btn-danger"
+          onclick="
+            return confirm('Are you sure you want to delete this event?');
+          "
+        >
+          Delete
+        </a>
       </div>
     </div>
+
+    <div id="qrBox">
+      <img
+        src="data:image/png;base64,{{ qr_image }}"
+        width="250"
+        height="250"
+        alt="Attendance QR Code"
+      />
+    </div>
   </div>
+  {% endif %} {% endif %}
 </div>
 
 <div class="card border-0 shadow-sm rounded-4">
@@ -51,8 +111,9 @@
 
       <input
         type="text"
+        id="searchInput"
         class="form-control w-25"
-        placeholder="Search staff..."
+        placeholder="Search entries..."
       />
     </div>
 
@@ -60,30 +121,128 @@
       <table class="table align-middle">
         <thead class="table-light">
           <tr>
-            <th>Staff Name</th>
+            <th>Name</th>
             <th>Position</th>
             <th>Check In</th>
             <th>Check Out</th>
             <th>Status</th>
+            <th>Actions</th>
           </tr>
         </thead>
 
-        <tbody>
-          {% for record in attendance_records %}
+        <tbody id="attendanceTable">
+          {% for entry in entries|slice:":6" %}
           <tr>
-            <td>{{ record.staff_name }}</td>
-            <td>{{ record.position }}</td>
-            <td>{{ record.check_in|default:"--" }}</td>
-            <td>{{ record.check_out|default:"--" }}</td>
+            <td class="name">{{ entry.name }}</td>
+            <td>{{ entry.campus }}</td>
+            <td>{{ entry.check_in|date:"h:i A"|default:"---" }}</td>
+            <td>{{ entry.check_out|date:"h:i A"|default:"---" }}</td>
+            <td>{{ entry.status }}</td>
+
             <td>
-              <span class="badge bg-success">{{ record.status }}</span>
+              {% if entry.check_in_image or entry.check_out_image %}
+              <button
+                type="button"
+                class="btn btn-sm btn-info"
+                onclick="openImageViewer(
+    '{% if entry.check_in_image %}{{ entry.check_in_image.url }}{% endif %}',
+    '{% if entry.check_out_image %}{{ entry.check_out_image.url }}{% endif %}'
+  )"
+              >
+                View
+              </button>
+              {% else %} --- {% endif %}
+
+              <a
+                href="{% url 'delete_entry' entry.id %}"
+                class="btn btn-sm btn-danger"
+                onclick="return confirmRemoveEntry();"
+              >
+                Remove
+              </a>
             </td>
           </tr>
-          {% empty %}
+          {% endfor %} {% if not entries %}
           <tr>
-            <td colspan="5" class="text-center text-muted py-4">
-              <i class="bi bi-inbox" style="font-size: 20px"></i><br />
-              No entries detected
+            <td colspan="5" class="text-center">No entries detected</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+      {% if entries|length > 6 %}
+      <div class="text-end mt-2">
+        <button
+          type="button"
+          class="btn btn-secondary btn-sm"
+          onclick="openFullList()"
+        >
+          Show Full List
+        </button>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div id="fullListViewer" class="full-list-viewer">
+  <div class="full-list-box">
+    <button class="close-full-list" onclick="closeFullList()">×</button>
+
+    <div class="d-flex justify-content-between align-items-start mb-3">
+      <div>
+        <h4 class="fw-bold mb-0">Full Attendance List</h4>
+      </div>
+
+      <input
+        type="text"
+        id="fullListSearch"
+        class="form-control w-25 me-5"
+        placeholder="Search entries..."
+      />
+    </div>
+
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Name</th>
+            <th>Position</th>
+            <th>Check In</th>
+            <th>Check Out</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+
+        <tbody id="fullListTable">
+          {% for entry in entries %}
+          <tr>
+            <td class="full-name">{{ entry.name }}</td>
+            <td>{{ entry.campus }}</td>
+            <td>{{ entry.check_in|date:"h:i A"|default:"---" }}</td>
+            <td>{{ entry.check_out|date:"h:i A"|default:"---" }}</td>
+            <td>{{ entry.status }}</td>
+            <td>
+              {% if entry.check_in_image or entry.check_out_image %}
+              <button
+                type="button"
+                class="btn btn-sm btn-info"
+                onclick="openImageViewer(
+                  '{% if entry.check_in_image %}{{ entry.check_in_image.url }}{% endif %}',
+                  '{% if entry.check_out_image %}{{ entry.check_out_image.url }}{% endif %}'
+                )"
+              >
+                View
+              </button>
+              {% else %} --- {% endif %}
+
+              <a
+                href="{% url 'delete_entry' entry.id %}"
+                class="btn btn-sm btn-danger"
+                onclick="return confirmRemoveEntry();"
+              >
+                Remove
+              </a>
             </td>
           </tr>
           {% endfor %}
@@ -92,5 +251,204 @@
     </div>
   </div>
 </div>
+
+<div id="imageViewer" class="image-viewer">
+  <button class="close-viewer" onclick="closeImageViewer()">×</button>
+
+  <button id="prevBtn" class="nav-btn left" onclick="prevImage()">‹</button>
+  <button id="nextBtn" class="nav-btn right" onclick="nextImage()">›</button>
+
+  <img id="viewerImage" src="" alt="Attendance Image" />
+
+  <p id="imageLabel"></p>
+</div>
+
+<style>
+  .image-viewer {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.88);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+  }
+
+  .image-viewer img {
+    max-width: 85%;
+    max-height: 80vh;
+    border-radius: 12px;
+    background: white;
+  }
+
+  .close-viewer {
+    position: absolute;
+    top: 25px;
+    right: 35px;
+    font-size: 38px;
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+  }
+
+  .nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 55px;
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+  }
+
+  .nav-btn.left {
+    left: 40px;
+  }
+
+  .nav-btn.right {
+    right: 40px;
+  }
+
+  #imageLabel {
+    color: white;
+    margin-top: 15px;
+    font-weight: 600;
+  }
+
+  .full-list-viewer {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.88);
+    z-index: 9998;
+    align-items: center;
+    justify-content: center;
+    padding: 30px;
+  }
+
+  .full-list-box {
+    background: white;
+    width: 90%;
+    max-height: 85vh;
+    overflow-y: auto;
+    border-radius: 12px;
+    padding: 25px;
+    position: relative;
+  }
+
+  .close-full-list {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    font-size: 30px;
+    border: none;
+    background: none;
+    cursor: pointer;
+  }
+</style>
+
+<script>
+  let images = [];
+  let currentIndex = 0;
+
+  document.getElementById("searchInput").addEventListener("keyup", function () {
+    let filter = this.value.toLowerCase();
+    let rows = document.querySelectorAll("#attendanceTable tr");
+
+    rows.forEach((row) => {
+      let name = row.querySelector(".name").textContent.toLowerCase();
+
+      if (name.includes(filter)) {
+        row.style.display = "";
+      } else {
+        row.style.display = "none";
+      }
+    });
+  });
+
+  document
+    .getElementById("fullListSearch")
+    .addEventListener("keyup", function () {
+      let filter = this.value.toLowerCase();
+      let rows = document.querySelectorAll("#fullListTable tr");
+
+      rows.forEach((row) => {
+        let name = row.querySelector(".full-name").textContent.toLowerCase();
+
+        row.style.display = name.includes(filter) ? "" : "none";
+      });
+    });
+
+  function openFullList() {
+    document.getElementById("fullListViewer").style.display = "flex";
+  }
+
+  function closeFullList() {
+    document.getElementById("fullListViewer").style.display = "none";
+  }
+
+  function confirmRemoveEntry() {
+    return confirm("Are you sure you want to remove this entry?");
+  }
+
+  function toggleQR() {
+    const qrBox = document.getElementById("qrBox");
+    qrBox.style.display = qrBox.style.display === "none" ? "block" : "none";
+  }
+
+  function openImageViewer(checkInImg, checkOutImg) {
+    images = [];
+
+    if (checkInImg) {
+      images.push({ src: checkInImg, label: "Check-in Picture" });
+    }
+
+    if (checkOutImg) {
+      images.push({ src: checkOutImg, label: "Check-out Picture" });
+    }
+
+    if (images.length === 0) return;
+
+    currentIndex = 0;
+    showImage();
+
+    document.getElementById("imageViewer").style.display = "flex";
+  }
+
+  function showImage() {
+    document.getElementById("viewerImage").src = images[currentIndex].src;
+    document.getElementById("imageLabel").innerText =
+      images[currentIndex].label;
+
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+
+    if (images.length <= 1) {
+      prevBtn.style.display = "none";
+      nextBtn.style.display = "none";
+    } else {
+      prevBtn.style.display = currentIndex === 0 ? "none" : "block";
+      nextBtn.style.display =
+        currentIndex === images.length - 1 ? "none" : "block";
+    }
+  }
+
+  function nextImage() {
+    currentIndex = (currentIndex + 1) % images.length;
+    showImage();
+  }
+
+  function prevImage() {
+    currentIndex = (currentIndex - 1 + images.length) % images.length;
+    showImage();
+  }
+
+  function closeImageViewer() {
+    document.getElementById("imageViewer").style.display = "none";
+  }
+</script>
 
 {% endblock %}
