@@ -5,7 +5,7 @@
   <div>
     <h2 class="fw-bold mb-1">Today's Attendance</h2>
     <p class="text-muted mb-0">
-      Monitor staff check-in and check-out records for today.
+      Monitor user check-in and check-out records for today.
     </p>
   </div>
 
@@ -103,6 +103,8 @@
   </div>
   {% endif %} {% endif %}
 </div>
+
+{% if event %}
 
 <div class="card border-0 shadow-sm rounded-4">
   <div class="card-body">
@@ -262,6 +264,8 @@
 
   <p id="imageLabel"></p>
 </div>
+
+{% endif %}
 
 <style>
   .image-viewer {
